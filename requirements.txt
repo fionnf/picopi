@@ -1,0 +1,6 @@
+numpy>=1.21
+pyqtgraph>=0.13
+PyQt5>=5.15
+# picosdk is the ctypes wrapper only; the native PicoSDK driver
+# (libps2000a) must be installed separately — see README.
+picosdk>=1.1

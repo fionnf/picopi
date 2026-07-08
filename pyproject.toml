@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "picopi"
+version = "0.1.0"
+description = "Live PicoScope 2000-series trace with frequency measurement, for Raspberry Pi"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "pyqtgraph>=0.13",
+    "PyQt5>=5.15",
+]
+
+# The PicoScope hardware backend also needs `picosdk` plus the native PicoSDK
+# driver. It is an optional extra so the package (and its tests) install on
+# machines without the driver.
+[project.optional-dependencies]
+hardware = ["picosdk>=1.1"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+picopi = "picopi.app:main"
+
+[tool.setuptools]
+packages = ["picopi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
