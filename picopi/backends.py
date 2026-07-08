@@ -9,6 +9,7 @@ PicoScope 2000-series hardware (:class:`PicoScope2000Backend`) or a hardware-fre
 from __future__ import annotations
 
 import os
+import platform
 import sys
 from abc import ABC, abstractmethod
 
@@ -17,6 +18,30 @@ import numpy as np
 __all__ = ["ScopeBackend", "SimulatedBackend", "PicoScope2000Backend"]
 
 _MACOS_PICOSDK_LIB_DIR = "/Library/Frameworks/PicoSDK.framework/Libraries"
+
+_LINUX_ARM64_MACHINES = {"aarch64", "arm64"}
+
+
+def _check_linux_driver_arch() -> None:
+    """Fail fast with an actionable message on 64-bit ARM Linux.
+
+    Pico only ships ``libps2000a`` (and the other 2000-series drivers) as an
+    **armhf** (32-bit ARM) build — there is no arm64 build. On a 64-bit
+    Raspberry Pi OS (the default image since ~2022, ``uname -m`` ==
+    ``aarch64``) the driver cannot be installed or loaded at all, and the
+    ``picosdk`` wrapper's generic "not found, check LD_LIBRARY_PATH" error
+    doesn't explain why. Detect that case here and raise a clearer error
+    pointing at the README instead of letting the confusing upstream message
+    surface.
+    """
+    if sys.platform.startswith("linux") and platform.machine() in _LINUX_ARM64_MACHINES:
+        raise RuntimeError(
+            "No PicoSDK ps2000a driver is available for 64-bit ARM Linux "
+            "(uname -m == '" + platform.machine() + "'). Pico only builds this "
+            "driver as armhf (32-bit); it cannot be installed on a 64-bit "
+            "Raspberry Pi OS. See the 'Running on Raspberry Pi' section of "
+            "README.md for the 32-bit OS install path."
+        )
 
 
 def _ensure_macos_dyld_path() -> None:
@@ -173,6 +198,7 @@ class PicoScope2000Backend(ScopeBackend):
     def open(self) -> None:
         import ctypes
 
+        _check_linux_driver_arch()
         _ensure_macos_dyld_path()
         from picosdk.ps2000a import ps2000a as ps
         from picosdk.functions import assert_pico_ok, mV2adc

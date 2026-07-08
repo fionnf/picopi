@@ -23,14 +23,25 @@ You should see a live 1 kHz sine and both readouts converging on ~1000 Hz.
 
 ## Running against a real PicoScope (Raspberry Pi)
 
+> **Use 32-bit Raspberry Pi OS, not the 64-bit default.** Pico only builds the
+> 2000-series driver (`libps2000a`) as an **armhf** (32-bit ARM) package —
+> there is no arm64 build, and there's no supported way to install or load it
+> on 64-bit Raspberry Pi OS (the default image since ~2022). If you're on a
+> real Pi you'll need to flash **Raspberry Pi OS (32-bit, "Legacy")** with
+> Raspberry Pi Imager. `picopi` detects a 64-bit ARM host and fails with an
+> explicit error rather than the confusing upstream "not found" message, but
+> there's no code-level fix for the missing driver build — it's an OS choice.
+
 1. **Install the native PicoSDK driver.** The `picosdk` Python package is only a
-   ctypes wrapper — it needs Pico's native `libps2000a` library. Install it from
-   Pico Technology's APT repository or a `.deb`:
+   ctypes wrapper — it needs Pico's native `libps2000a` library (armhf). Grab
+   the `.deb` for your architecture from Pico's package repo
+   ([labs.picotech.com/debian/pool/main/libp/libps2000a/](https://labs.picotech.com/debian/pool/main/libp/libps2000a/))
+   — it also depends on `libpicoipp`, in the neighboring `libpicoipp/`
+   directory — and install both:
 
    ```bash
-   # Add Pico's repo (see picotech.com for the current instructions), then:
-   sudo apt update
-   sudo apt install libps2000a          # native 2000A/B driver
+   sudo dpkg -i libpicoipp_*_armhf.deb libps2000a_*_armhf.deb
+   sudo apt --fix-broken install         # pulls in any missing deps
    ```
 
 2. **Install Python dependencies** (PyQt5 is best installed from apt on
