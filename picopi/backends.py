@@ -45,29 +45,42 @@ def _check_linux_driver_arch() -> None:
 
 
 def _ensure_macos_dyld_path() -> None:
-    """Point ``DYLD_LIBRARY_PATH`` at a default-location PicoSDK install.
+    """Make ``picosdk`` find a default-location PicoSDK install on macOS.
 
     Pico's Mac installer places driver libraries under
     ``/Library/Frameworks/PicoSDK.framework/Libraries/<driver-name>/`` rather
-    than anywhere the dynamic loader searches by default. Linux/Pi installs
-    put ``libps2000a`` on the normal loader path, so no equivalent step is
-    needed there. If the framework isn't present, this is a no-op and the
-    underlying ``picosdk`` import error surfaces unchanged.
+    than anywhere the dynamic loader searches by default. The obvious fix —
+    setting ``os.environ["DYLD_LIBRARY_PATH"]`` — does **not** work here:
+    dyld reads ``DYLD_LIBRARY_PATH`` once when a process launches, so
+    mutating it from within an already-running Python process has no effect
+    on that process's own library searches (only a *child* process launched
+    afterwards would see it). Instead, monkeypatch ``ctypes.util.find_library``
+    — the function ``picosdk.library.Library._load`` calls to resolve a
+    driver name — to check the known PicoSDK.framework path directly and
+    return an absolute ``.dylib`` path, which ``dlopen`` can always load
+    regardless of search-path env vars. This must run before ``picosdk`` is
+    first imported, since it binds ``find_library`` into its own namespace at
+    import time. Linux/Pi installs put ``libps2000a`` on the normal loader
+    path, so no equivalent step is needed there; if the framework isn't
+    present, this is a no-op and the underlying ``picosdk`` import error
+    surfaces unchanged.
     """
     if sys.platform != "darwin":
         return
     if not os.path.isdir(_MACOS_PICOSDK_LIB_DIR):
         return
 
-    lib_dirs = [
-        os.path.join(_MACOS_PICOSDK_LIB_DIR, name)
-        for name in ("libps2000a", "libpicoipp")
-        if os.path.isdir(os.path.join(_MACOS_PICOSDK_LIB_DIR, name))
-    ]
-    existing = os.environ.get("DYLD_LIBRARY_PATH", "")
-    missing = [d for d in lib_dirs if d not in existing.split(os.pathsep)]
-    if missing:
-        os.environ["DYLD_LIBRARY_PATH"] = os.pathsep.join(missing + ([existing] if existing else []))
+    import ctypes.util
+
+    original_find_library = ctypes.util.find_library
+
+    def patched_find_library(name):
+        candidate = os.path.join(_MACOS_PICOSDK_LIB_DIR, f"lib{name}", f"lib{name}.dylib")
+        if os.path.isfile(candidate):
+            return candidate
+        return original_find_library(name)
+
+    ctypes.util.find_library = patched_find_library
 
 
 class ScopeBackend(ABC):

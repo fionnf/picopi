@@ -83,16 +83,20 @@ Useful for testing against real hardware on a laptop before final deployment.
    ```
 3. **Plug in the scope and run** — same command as above. `picopi`
    auto-detects a default-location `/Library/Frameworks/PicoSDK.framework`
-   install and points `DYLD_LIBRARY_PATH` at it before importing `picosdk`,
-   so no manual `export` is needed for a standard install.
+   install, so no manual `export` is needed for a standard install. (It
+   works around a macOS quirk: `DYLD_LIBRARY_PATH` is only read by `dyld`
+   at process launch, so setting it from inside an already-running Python
+   process has no effect — `picopi` instead resolves the driver's absolute
+   path directly, which loads regardless of search-path env vars.)
 
 **Troubleshooting:** if you still see
 `Failed to open scope: PicoSDK (ps2000a) not found, check LD_LIBRARY_PATH`
 (the wrapper prints the Linux env var name even on macOS — a known upstream
 quirk):
 - Confirm the SDK actually installed to the default path above; a custom
-  install location needs its own `export DYLD_LIBRARY_PATH=...` before
-  running.
+  install location needs `export DYLD_LIBRARY_PATH=/path/to/libps2000a` set
+  *before* launching `python` (not from within the app), since that env var
+  only takes effect at process start.
 - Confirm architecture match — an Intel-only PicoSDK build won't load into an
   arm64 Python process (check with `lipo -info` on the `.dylib`, or reinstall
   the arm64 SDK build).
