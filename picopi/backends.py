@@ -8,11 +8,41 @@ PicoScope 2000-series hardware (:class:`PicoScope2000Backend`) or a hardware-fre
 
 from __future__ import annotations
 
+import os
+import sys
 from abc import ABC, abstractmethod
 
 import numpy as np
 
 __all__ = ["ScopeBackend", "SimulatedBackend", "PicoScope2000Backend"]
+
+_MACOS_PICOSDK_LIB_DIR = "/Library/Frameworks/PicoSDK.framework/Libraries"
+
+
+def _ensure_macos_dyld_path() -> None:
+    """Point ``DYLD_LIBRARY_PATH`` at a default-location PicoSDK install.
+
+    Pico's Mac installer places driver libraries under
+    ``/Library/Frameworks/PicoSDK.framework/Libraries/<driver-name>/`` rather
+    than anywhere the dynamic loader searches by default. Linux/Pi installs
+    put ``libps2000a`` on the normal loader path, so no equivalent step is
+    needed there. If the framework isn't present, this is a no-op and the
+    underlying ``picosdk`` import error surfaces unchanged.
+    """
+    if sys.platform != "darwin":
+        return
+    if not os.path.isdir(_MACOS_PICOSDK_LIB_DIR):
+        return
+
+    lib_dirs = [
+        os.path.join(_MACOS_PICOSDK_LIB_DIR, name)
+        for name in ("libps2000a", "libpicoipp")
+        if os.path.isdir(os.path.join(_MACOS_PICOSDK_LIB_DIR, name))
+    ]
+    existing = os.environ.get("DYLD_LIBRARY_PATH", "")
+    missing = [d for d in lib_dirs if d not in existing.split(os.pathsep)]
+    if missing:
+        os.environ["DYLD_LIBRARY_PATH"] = os.pathsep.join(missing + ([existing] if existing else []))
 
 
 class ScopeBackend(ABC):
@@ -143,6 +173,7 @@ class PicoScope2000Backend(ScopeBackend):
     def open(self) -> None:
         import ctypes
 
+        _ensure_macos_dyld_path()
         from picosdk.ps2000a import ps2000a as ps
         from picosdk.functions import assert_pico_ok, mV2adc
 

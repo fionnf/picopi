@@ -55,6 +55,37 @@ You should see a live 1 kHz sine and both readouts converging on ~1000 Hz.
 > (`from picosdk.ps2000 import ps2000 as ps`) and the `ps2000a*` calls
 > accordingly.
 
+## Running on macOS (desktop testing before the Pi)
+
+Useful for testing against real hardware on a laptop before final deployment.
+
+1. **Install PicoSDK for Mac** from Pico's
+   [downloads page](https://www.picotech.com/downloads) — Apple Silicon Macs
+   need the native **arm64** build (Pico added arm64 support, including
+   `ps2000a`, in SDK 11.1.0.474); Intel Macs use the standard x86_64 build.
+   This installs `PicoSDK.framework` into `/Library/Frameworks/`.
+2. **Install Python dependencies:**
+
+   ```bash
+   python -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+3. **Plug in the scope and run** — same command as above. `picopi`
+   auto-detects a default-location `/Library/Frameworks/PicoSDK.framework`
+   install and points `DYLD_LIBRARY_PATH` at it before importing `picosdk`,
+   so no manual `export` is needed for a standard install.
+
+**Troubleshooting:** if you still see
+`Failed to open scope: PicoSDK (ps2000a) not found, check LD_LIBRARY_PATH`
+(the wrapper prints the Linux env var name even on macOS — a known upstream
+quirk):
+- Confirm the SDK actually installed to the default path above; a custom
+  install location needs its own `export DYLD_LIBRARY_PATH=...` before
+  running.
+- Confirm architecture match — an Intel-only PicoSDK build won't load into an
+  arm64 Python process (check with `lipo -info` on the `.dylib`, or reinstall
+  the arm64 SDK build).
+
 ## Command-line options
 
 | Option | Default | Notes |
